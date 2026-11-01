@@ -1,0 +1,213 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../../../core/api/api_client.dart';
+import '../../../../core/providers/app_providers.dart';
+
+class ExportScreen extends ConsumerStatefulWidget {
+  const ExportScreen({super.key});
+
+  @override
+  ConsumerState<ExportScreen> createState() => _ExportScreenState();
+}
+
+class _ExportScreenState extends ConsumerState<ExportScreen> {
+  String _selectedRange = 'This month';
+  String _selectedFormat = 'CSV';
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final transactions = ref.watch(transactionsProvider).valueOrNull ?? const [];
+    final budgets = ref.watch(budgetCategoriesProvider).valueOrNull ?? const [];
+    final goals = ref.watch(goalsProvider).valueOrNull ?? const [];
+    final recurringBills = ref.watch(recurringBillsProvider).valueOrNull ?? const [];
+
+    final transactionCount = transactions.length;
+    final budgetCount = budgets.length;
+    final goalCount = goals.length;
+    final recurringCount = recurringBills.length;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Export data')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Choose export options',
+                    style: tt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Date range',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ['This month', 'Last 3 months', 'This year']
+                        .map(
+                          (range) => ChoiceChip(
+                            label: Text(range),
+                            selected: _selectedRange == range,
+                            onSelected: (_) =>
+                                setState(() => _selectedRange = range),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'File format',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ['CSV', 'PDF']
+                        .map(
+                          (format) => ChoiceChip(
+                            label: Text(format),
+                            selected: _selectedFormat == format,
+                            onSelected: (_) =>
+                                setState(() => _selectedFormat = format),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Included in export',
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  _ExportItem(
+                    label: 'Transactions',
+                    value: '$transactionCount rows',
+                  ),
+                  _ExportItem(
+                    label: 'Budgets',
+                    value: '$budgetCount categories',
+                  ),
+                  _ExportItem(label: 'Goals', value: '$goalCount tracked'),
+                  _ExportItem(
+                    label: 'Recurring bills',
+                    value: '$recurringCount items',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: _handleExport,
+            icon: const Icon(Icons.download_outlined),
+            label: Text('Export $_selectedFormat'),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'CSV and PDF exports are generated by the Peso Plan API for the selected date range.',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleExport() async {
+    final householdId = ref.read(authStateProvider).householdId;
+    if (householdId == null || householdId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a household before exporting.')),
+      );
+      return;
+    }
+
+    final now = DateTime.now();
+    final from = switch (_selectedRange) {
+      'Last 3 months' => DateTime(now.year, now.month - 2, 1),
+      'This year' => DateTime(now.year, 1, 1),
+      _ => DateTime(now.year, now.month, 1),
+    };
+    final extension = _selectedFormat.toLowerCase();
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.dio.get<List<int>>(
+        '/households/$householdId/reports/export.$extension',
+        queryParameters: {
+          'from': '${from.year}-${from.month.toString().padLeft(2, '0')}-${from.day.toString().padLeft(2, '0')}',
+          'to': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) throw Exception('Empty export response');
+
+      final directory = await getTemporaryDirectory();
+      final filename = 'peso-plan-${now.toIso8601String().substring(0, 10)}.$extension';
+      final file = File('${directory.path}${Platform.pathSeparator}$filename');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], subject: 'Peso Plan export ($_selectedRange, $_selectedFormat)');
+    } catch (error) {
+      if (!mounted) return;
+      final dioError = error is DioException
+          ? error
+          : DioException(requestOptions: RequestOptions(), error: error);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(dioErrorMessage(dioError))),
+      );
+    }
+  }
+
+}
+
+class _ExportItem extends StatelessWidget {
+  const _ExportItem({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: tt.bodyMedium)),
+          Text(
+            value,
+            style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}

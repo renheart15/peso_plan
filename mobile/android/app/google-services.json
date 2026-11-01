@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "147223169958",
+    "project_id": "peso-plan",
+    "storage_bucket": "peso-plan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:147223169958:android:66ee5037a9c866aaa19d67",
+        "android_client_info": {
+          "package_name": "com.pesoplan.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAc8QC4JVCJeTLb7p1j-GH0KF_ZN6D2TlI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
