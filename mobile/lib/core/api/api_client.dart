@@ -76,7 +76,7 @@ class ApiClient {
       _dio.delete<T>(path, data: data, options: options);
 }
 
-/// Interceptor that attaches the Bearer token from secure storage.
+/// Interceptor that attaches the bearer token from secure storage.
 class _AuthInterceptor extends Interceptor {
   _AuthInterceptor(this._storage);
 
