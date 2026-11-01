@@ -11,7 +11,7 @@ class ApiClient {
   }) : _storage = storage ?? const FlutterSecureStorage() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl ?? FlavorConfig.apiBaseUrl,
+        baseUrl: baseUrl ?? AppConstants.apiBaseUrl,
         connectTimeout: const Duration(seconds: AppConstants.apiTimeoutSeconds),
         receiveTimeout: const Duration(seconds: AppConstants.apiTimeoutSeconds),
         sendTimeout: const Duration(seconds: AppConstants.apiTimeoutSeconds),
