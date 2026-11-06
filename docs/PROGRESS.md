@@ -1,11 +1,20 @@
 # Peso Plan — Progress Report
 
-> **Last updated:** 2026-10-28T16:50+08:00  
-> **Current phase:** Phase 5 — Polish, Offline & Release (implementation complete; Firebase and physical-device release QA remain deployment prerequisites)
+> **Last updated:** 2026-11-06T09:19+08:00
+> **Current phase:** Phase 5 — Polish, Offline & Release (implementation and cloud deployment preparation complete; APNs, release signing, and physical-device QA remain external prerequisites)
 
 ---
 
 ## Latest Update
+
+- Prepared the Laravel API for free cloud deployment on Render with a Docker image, PostgreSQL support, Apache configuration, automatic migrations, and the `/up` health endpoint.
+- Added a Render Blueprint in `render.yaml`; the expected service is `peso-plan-api` with a Docker context rooted at `backend/`.
+- Added build-time Flutter API configuration with `--dart-define=API_BASE_URL=...`; production builds no longer need a source-code change to target a deployed backend.
+- Configured the Firebase Android and iOS app registrations for package/bundle ID `com.pesoplan.app` using Firebase project `peso-plan`.
+- Moved the Flutter SDK out of a Windows username path and updated `android/local.properties`, allowing Android tooling to avoid paths containing spaces.
+- Added Android core-library desugaring and Android compile SDK 36 support required by notification and file-picker dependencies.
+- `flutter analyze` passes with 0 issues, and `flutter build apk --debug` produces an Android debug APK successfully.
+- Removed the missing Inter asset declarations because the project currently uses `google_fonts` rather than bundled font files.
 
 - Completed Phase 5 implementation: added real backend CSV/PDF exports, signed email-verification routing, auth feature coverage, report date-column/color-column fixes, and strengthened logout handling.
 - Added DomPDF to Laravel for downloadable PDF transaction exports and connected Flutter export sharing to the live CSV/PDF API endpoints.
@@ -18,7 +27,7 @@
 - Added real connectivity monitoring through `connectivity_plus`; the app now automatically replays queued mutations when connectivity returns and exposes online/offline state in the sync queue.
 - Added household-bound validation to transaction create and update account/category IDs, preventing cross-household resource references.
 - Added Laravel feature coverage for transaction creation, viewer permission boundaries, and repeated CSV import deduplication.
-- The app remains on the production-readiness track; real Firebase configuration and device-level release QA remain outstanding.
+- The app remains on the production-readiness track; Firebase app registration is complete, while APNs delivery and device-level release QA remain outstanding.
 
 ## Overall Completion Summary
 
@@ -56,7 +65,7 @@
 | 18 | Notifications center | 🟢 Complete | Notification preferences and recent activity cards added to the app |
 | 19 | Export center (CSV + PDF) | 🟢 Complete | Flutter export screen downloads real date-range CSV/PDF files from Laravel and shares them through the device share sheet |
 | 20 | Exports (CSV + PDF) | 🟢 Complete | Backend streams escaped CSV files and renders PDF transaction exports with DomPDF |
-| 21 | Push notifications (FCM) | 🟡 Deployment pending | Firebase initialization and notification flows exist; a real Firebase project is required for device delivery verification |
+| 21 | Push notifications (FCM) | 🟡 Deployment pending | Firebase Android and iOS configuration files exist for `com.pesoplan.app`; physical-device delivery and APNs configuration remain external QA tasks |
 | 22 | Offline support + sync queue | 🟢 Complete | Real Drift queue persistence, connectivity monitoring, retry/failure handling, manual sync, and automatic reconnect replay are implemented |
 | 23 | Accessibility | 🟢 Complete | Accessibility preferences, high-contrast toggles, and release-readiness checklist added |
 | 24 | Settings (full implementation) | 🟢 Complete | Settings screen includes profile, preferences, household access, and sign-out flow |
@@ -78,7 +87,7 @@
 
 **What was built:**
 
-- **Project scaffold:** `flutter create` with `--org com.yourcompany --platforms ios,android`
+- **Project scaffold:** `flutter create` targeting iOS and Android with application/bundle ID `com.pesoplan.app`
 - **pubspec.yaml:** All dependencies declared — `flutter_riverpod`, `go_router`, `dio`, `drift`, `drift_flutter`, `sqlite3_flutter_libs`, `fl_chart`, `firebase_core`, `firebase_messaging`, `flutter_local_notifications`, `flutter_secure_storage`, `google_fonts`, `intl`, `equatable`, `connectivity_plus`, `file_picker`, `share_plus`, `csv`, `crypto`, `mocktail`, and full `dev_dependencies`
 - **Feature-first folder structure:** 11 feature folders (auth, dashboard, budget, transactions, accounts, goals, recurring, reports, settings, onboarding, household) each with `data/`, `domain/`, `presentation/screens/`, `presentation/widgets/`
 - **Core: `api/`** — `ApiClient` (Dio with `_AuthInterceptor` attaching Bearer token; 401 clears token; `dioErrorMessage` converts errors to user strings)
@@ -94,7 +103,7 @@
 - **Onboarding screen:** 3-page `PageView` with animated width-transition dots and skip button
 - **Settings screen:** Profile tile, 8 preference rows, sign-out with confirmation dialog
 - **Stub screens:** Budget, Transactions, AddTransaction, Goals, Accounts, Reports, Household (all compilable)
-- **`firebase_options.dart`:** Placeholder stub (requires `flutterfire configure` before release)
+- **`firebase_options.dart`:** Configured for Android and iOS Firebase project `peso-plan`
 - **`main.dart`:** Firebase init, `ProviderScope`, `MaterialApp.router`, locale `en_PH`
 - **Build & Codegen Upgrade:** Run `flutter pub upgrade` updating `analyzer` to 10.2.0, `drift_dev` to 2.31.0, and `build_runner` to 2.15.1 for full compatibility with Dart 3.13.
 
@@ -163,7 +172,7 @@
 | B-04 | Step 3 (controllers) | Goal, RecurringBill, DeviceToken, Report controllers + models | ✅ **Resolved** — All 10 controllers and 12 models written & integrated |
 | B-05 | Step 1 (README) | Root README.md not yet written | ✅ **Resolved** — Root `README.md` created |
 | B-06 | Flutter compile | Drift `.g.dart` generated files (running build_runner) | 🟡 **In Progress** — Packages upgraded to analyzer 10.2 / drift 2.31; build_runner in progress |
-| B-07 | Flutter compile | Firebase options are placeholders | ℹ️ **Known Stub** — App dev mode uses graceful fallback until FlutterFire CLI configuration |
+| B-07 | Flutter compile | Firebase registration | 🟢 **Resolved** — Android and iOS Firebase configurations are registered for `com.pesoplan.app` |
 
 ---
 
@@ -173,7 +182,7 @@
 |---|-----------|--------|
 | A1 | `php_zip.dll` is blocked by Windows Application Control policy | Observed during install; `extension=zip` edited in php.ini but DLL is policy-blocked. Impact: Composer uses git-source fallback (slower, no functional impact). |
 | A2 | MySQL available on `localhost:3306` with user `root` and empty password via Laragon | Standard Laragon MySQL setup; verified working and seeded. |
-| A3 | Firebase project does not yet exist | `firebase_options.dart` is a placeholder; FCM deferred to Phase 4 (step 18). |
+| A3 | iOS Firebase delivery verification incomplete | The APNs key and physical-device notification delivery remain external tasks; Android/iOS app registrations are configured. |
 | A4 | `google_fonts` replaces bundled Inter font files | Avoids requiring manual font file download; can be switched to bundled fonts for strict offline-first release. |
 | A5 | Android emulator loopback to host = `10.0.2.2` | Standard Android emulator networking. |
 | A6 | Laravel 13 (installed) vs spec's Laravel 11 | Composer resolved latest stable (13.38.0). All APIs used are compatible; Sanctum, migrations, and route definitions are identical. Recorded in DECISIONS.md. |
@@ -185,7 +194,7 @@
 | ID | Severity | Issue | Status / Suggested Fix |
 |----|----------|-------|------------------------|
 | TD-01 | High | Drift `.g.dart` files not generated | Running `dart run build_runner build` with updated analyzer 10.2 / drift 2.31 |
-| TD-02 | High | Firebase `firebase_options.dart` is a placeholder | Run `flutterfire configure` with a real Firebase project before production release |
+| TD-02 | High | APNs and FCM delivery are not physically verified | Upload the APNs key, configure device tokens, and test notifications on Android and iOS devices |
 | TD-03 | High | MySQL DB `peso_plan` migrations not run | ✅ **RESOLVED** — Ran `php artisan migrate:fresh --seed` successfully |
 | TD-04 | Medium | Missing controllers: Goal, RecurringBill, DeviceToken, Report | ✅ **RESOLVED** — All 4 controllers implemented in `Api/V1` |
 | TD-05 | Medium | Missing models: Tag, TransactionSplit, CategoryRule, DeviceToken | ✅ **RESOLVED** — All 4 Eloquent models created in `app/Models` |
@@ -206,20 +215,25 @@
 
 ---
 
-## Deployment Prerequisites and Next Steps
+## Deployment Status and Next Steps
 
-1. **Configure Firebase** — replace `firebase_options.dart` with output from `flutterfire configure` for the real Android/iOS project.
-2. **Configure release signing** — create and secure Android keystore and iOS signing/provisioning credentials.
-3. **Run physical-device QA** — verify authentication restoration, CSV/PDF sharing, connectivity replay, secure storage, exports, and Firebase notifications.
-4. **Run final release builds** — execute Android APK/AAB and iOS archive builds, then complete store metadata and submission checks.
-5. **Expand automated coverage** — add Flutter offline/export widget coverage and broader Laravel household permission/report feature tests as post-Phase-5 hardening.
+1. **Backend deployment configuration** — Render Blueprint and Docker deployment files are prepared. Provision PostgreSQL and the Render service, then set `APP_KEY`, `APP_URL`, and `DB_URL`.
+2. **Firebase project configuration** — Android and iOS app registrations exist under Firebase project `peso-plan`. Upload the Apple APNs authentication key in Firebase Cloud Messaging for iOS delivery.
+3. **Release signing** — create and secure Android keystore and iOS signing/provisioning credentials.
+4. **Run physical-device QA** — verify authentication restoration, CSV/PDF sharing, connectivity replay, secure storage, exports, Android notifications, and iOS notifications.
+5. **Run final release builds** — execute Android APK/AAB and iOS archive builds, then complete store metadata and submission checks.
+6. **Expand automated coverage** — add Flutter offline/export widget coverage and broader Laravel household permission/report feature tests as post-Phase-5 hardening.
 
 ### Verification Snapshot
 
 - Flutter `flutter analyze`: **0 issues**
+- Android debug APK: **Build successful**
+- Flutter SDK development location: `C:\flutter` (kept outside Windows paths containing spaces)
+- Android package/bundle identifier: `com.pesoplan.app`
+- Firebase project: `peso-plan`
+- Render backend configuration: `render.yaml`, `backend/Dockerfile`, `/up` health check
 - Laravel PHPUnit: **9 tests passing, 25 assertions**
 - Laravel routes: API versioned routes registered under `/api/v1`
 - CSV transaction import: deduplicates imports with SHA-256 hashes
 - Offline mutation replay: implemented with Drift persistence and connectivity monitoring
 - Live exports: Laravel CSV/PDF downloads connected to Flutter share handling
-

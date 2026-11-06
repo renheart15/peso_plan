@@ -1,6 +1,6 @@
 # Architecture — Peso Plan
 
-> **Last updated:** 2026-10-28T16:50+08:00
+> **Last updated:** 2026-11-06T09:19+08:00
 
 ---
 
@@ -63,6 +63,18 @@ peso_plan/
     ├── ARCHITECTURE.md        (this file)
     └── store/                 # App store listing metadata
 ```
+
+---
+
+## Deployment Architecture
+
+- The Laravel API is containerized with `backend/Dockerfile` using PHP 8.3, Apache, PostgreSQL drivers, Composer, and automatic migrations at startup.
+- `render.yaml` defines the free Render web service `peso-plan-api`, PostgreSQL-compatible environment variables, Docker builds from `backend/`, and the `/up` health check.
+- Flutter selects the API URL at build time through `--dart-define=API_BASE_URL=https://host/api/v1`.
+- The Firebase project `peso-plan` is configured for Android application ID and iOS bundle ID `com.pesoplan.app`.
+- Android uses `google-services.json`; iOS uses `GoogleService-Info.plist`.
+- Production APNs delivery requires the Apple authentication key and Firebase Cloud Messaging configuration outside the repository.
+- Git and source publication live under repository `renheart15/peso_plan`; generated builds, `.env` files, signing files, databases, and Firebase platform credentials are excluded by `.gitignore` where appropriate.
 
 ---
 

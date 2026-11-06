@@ -102,8 +102,8 @@ class FlavorConfig {
       AppFlavor.dev => Platform.isAndroid
           ? 'http://10.0.2.2:8000/api/v1'
           : 'http://127.0.0.1:8000/api/v1',
-      AppFlavor.staging => 'https://staging-api.pesoplan.app/api/v1',
-      AppFlavor.production => 'https://api.pesoplan.app/api/v1',
+      AppFlavor.staging => 'https://peso-plan-api.onrender.com/api/v1',
+      AppFlavor.production => 'https://peso-plan-api.onrender.com/api/v1',
     };
   }
 

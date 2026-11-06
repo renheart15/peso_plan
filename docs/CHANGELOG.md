@@ -8,11 +8,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased] — Phase 5 implementation complete
 
+### 2026-11-06 — Deployment and build preparation
+- Prepared the Laravel API for Render deployment with Docker, Apache, PostgreSQL support, automatic migrations, and `/up` health checking.
+- Added `render.yaml` with the `peso-plan-api` web service and `backend` Docker context.
+- Added build-time `API_BASE_URL` configuration for deployable Flutter builds.
+- Configured Android and iOS Firebase registrations for package/bundle ID `com.pesoplan.app` and Firebase project `peso-plan`.
+- Added Android notification core-library desugaring, compile SDK 36 support, and resolved missing font asset declarations.
+- Verified `flutter analyze` with 0 issues and successfully built an Android debug APK after moving the Flutter SDK to `C:\flutter`.
+
 ### Mobile (Flutter) — Added & Updated
 - **2026-10-28:** Completed Phase 5 export integration; CSV/PDF exports now download from the Laravel API for the selected range and share through the device file/share sheet instead of generating share-only sample text.
 - **2026-10-28:** Fixed transaction API payload alignment by sending positive integer-cent values and resolved `account_id` from the selected account; expense responses are normalized to negative display values in the transaction model.
 - **2026-10-28:** Added focused transaction income/expense model tests for API payload normalization.
-- Project scaffolded with Flutter 3.47.1, targeting iOS and Android (`com.yourcompany.pesoplan`)
+- Project scaffolded with Flutter 3.47.1, targeting iOS and Android (`com.pesoplan.app`)
 - Feature-first folder structure under `mobile/lib/` (11 features × data/domain/presentation)
 - `pubspec.yaml` with full dependency set:
   - State: `flutter_riverpod 2.6.1`
@@ -63,7 +71,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **Reports + household state** — Wired report and household summary screens to provider/repository APIs with safe mock fallbacks while the Laravel API contracts are finalized
 - **API contract alignment** — Added the missing household summary route in Laravel and aligned payload parsing between Flutter and the backend so provider-backed report and household screens can use live data correctly
 - **Dashboard data integration** — Replaced static dashboard placeholders with real provider-backed summary values for spend, upcoming bills, budget progress, and goals
-- **`firebase_options.dart`** — Placeholder stub; requires `flutterfire configure` before release
+- **`firebase_options.dart`** — Populated Android/iOS configuration for Firebase project `peso-plan`
 
 ### API (Laravel) — Added & Updated
 - **2026-10-28:** Added real PDF transaction export with DomPDF and fixed report queries to use the `transactions.date` and `categories.color_hex` columns.

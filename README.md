@@ -80,9 +80,7 @@ flutter pub get
 # Generate Drift database code (required before running)
 dart run build_runner build --delete-conflicting-outputs
 
-# (Optional) Configure Firebase — required for push notifications
-# Install FlutterFire CLI first: dart pub global activate flutterfire_cli
-# flutterfire configure
+# Firebase is configured for project peso-plan and app ID com.pesoplan.app.
 
 # Run on connected device / emulator
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1   # Android emulator
@@ -90,6 +88,28 @@ flutter run --dart-define=API_BASE_URL=http://localhost:8000/api/v1   # iOS simu
 ```
 
 > **Note:** The Android emulator loopback for the host machine is `10.0.2.2`, not `localhost`.
+
+---
+
+## Cloud Deployment
+
+The Laravel API is prepared for Render using the repository-level `render.yaml` Blueprint.
+
+1. Create a Render PostgreSQL database.
+2. In Render, create the Blueprint from the repository or deploy the Docker service defined in `render.yaml`.
+3. Set `APP_KEY` to the output of `php artisan key:generate --show` and set `APP_URL` to the public HTTPS service URL.
+4. Set `DB_URL` to the Render PostgreSQL internal connection string. `DB_SSLMODE=require` is already configured.
+5. The Docker entrypoint runs migrations and caches Laravel configuration before Apache starts. The health check is `GET /up`.
+
+Build the Flutter app for the deployed API:
+
+```powershell
+cd mobile
+flutter build apk --release --dart-define=API_BASE_URL=https://YOUR-SERVICE.onrender.com/api/v1 --dart-define=FLAVOR=production
+flutter build ios --release --dart-define=API_BASE_URL=https://YOUR-SERVICE.onrender.com/api/v1 --dart-define=FLAVOR=production
+```
+
+Firebase uses project `peso-plan`, Android application ID `com.pesoplan.app`, and iOS bundle ID `com.pesoplan.app`. APNs delivery still requires the Apple APNs key to be uploaded in Firebase.
 
 ---
 
@@ -142,7 +162,7 @@ All authenticated requests require `Authorization: Bearer <token>` header.
 | Key | Example | Description |
 |-----|---------|-------------|
 | `API_BASE_URL` | `http://10.0.2.2:8000/api/v1` | Backend API base URL |
-| `FLAVOR` | `dev` | App flavor: `dev`, `staging`, `prod` |
+| `FLAVOR` | `dev` | App flavor: `dev`, `staging`, `production` |
 
 ---
 

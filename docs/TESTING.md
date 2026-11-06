@@ -1,7 +1,7 @@
 # Testing Status — Peso Plan
 
-> **Last updated:** 2026-10-28T16:50+08:00  
-> **Current phase:** Phase 5 — Offline and API contract validation; expanding feature coverage
+> **Last updated:** 2026-11-06T09:19+08:00
+> **Current phase:** Phase 5 — Offline, Firebase, cloud deployment, and release validation
 
 ---
 
@@ -41,7 +41,7 @@ php artisan test --coverage --min=80
 | Widget tests | 1 | 1 | 0 | Smoke pass |
 | Integration tests | 0 | 0 | 0 | — |
 
-> **Status:** Drift `app_database.g.dart` successfully generated via `build_runner`. `flutter analyze` passes with 0 issues and the live export flow compiles. Added focused transaction API normalization tests; Windows native-test execution currently needs a path without spaces in the Flutter/Pub cache environment.
+> **Status:** Drift `app_database.g.dart` successfully generated via `build_runner`. `flutter analyze` passes with 0 issues, and the Android debug APK builds successfully. Added focused transaction API normalization tests and cloud API configuration support. Use a Flutter SDK location without spaces on Windows when native package builds are required.
 
 ### Laravel / PHPUnit
 
@@ -72,7 +72,10 @@ php artisan test --coverage --min=80
 - [x] **`flutter pub get` & `flutter pub upgrade`** — resolved and upgraded dependencies
 - [x] **`dart run build_runner build`** — generated `app_database.g.dart` (76 build outputs)
 - [x] **`flutter analyze`** — passes with 0 issues
-- [ ] **Firebase configuration** — replace the placeholder stub with `flutterfire configure` output and verify physical-device delivery
+- [x] **Android Firebase configuration** — `google-services.json`, package ID, Gradle plugin, and Flutter options configured for `com.pesoplan.app`
+- [x] **iOS Firebase configuration** — Bundle ID and `GoogleService-Info.plist` configured for `com.pesoplan.app`
+- [ ] **Firebase delivery verification** — upload the Apple APNs key and verify Android/iOS notifications on physical devices
+- [x] **Android debug build** — core desugaring and compile SDK 36 configured; APK builds successfully
 
 ### Laravel
 - [x] **Create MySQL database:** `CREATE DATABASE peso_plan CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
@@ -119,6 +122,6 @@ php artisan test --coverage --min=80
 | ID | Condition | Root Cause | Status / Fix |
 |----|-----------|------------|--------------|
 | F-01 | Flutter app does not compile | Drift `.g.dart` files not generated | ✅ **RESOLVED** — Generated via `build_runner` (wrote 76 outputs) |
-| F-02 | Firebase init crashes at launch | `firebase_options.dart` is a placeholder | Run `flutterfire configure` OR use try-catch in `main()` for dev |
+| F-02 | Firebase configuration is incomplete | Platform configuration and notification delivery still require external Firebase/APNs verification | 🟡 Android/iOS files configured; physical-device delivery pending |
 | F-03 | Laravel tests fail to connect | `peso_plan` MySQL database not created | ✅ **RESOLVED** — Database created & seeded |
 | F-04 | `php artisan route:list` fails | Missing controllers | ✅ **RESOLVED** — All 10 controllers implemented |

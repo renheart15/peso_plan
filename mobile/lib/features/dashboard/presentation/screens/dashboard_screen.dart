@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../budget/domain/budget_category_model.dart';
 import '../../../goals/domain/goal_model.dart';
@@ -429,7 +430,4 @@ class _GoalTile extends StatelessWidget {
   }
 }
 
-extension _AppColorsX on ColorScheme {
-  Color get income => const Color(0xFF1A6B4A);
-  Color get expense => const Color(0xFFB53A2F);
-}
+

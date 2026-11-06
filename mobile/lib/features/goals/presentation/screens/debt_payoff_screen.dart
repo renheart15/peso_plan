@@ -46,6 +46,16 @@ class DebtPayoffScreen extends ConsumerStatefulWidget {
 
   static String formatCurrencyForDisplay(int value) => formatCurrency(value);
 
+  /// Public read-only view of the sample debts (for tests and external consumers).
+  static List<DebtInfo> get sampleDebts => _sampleDebts
+      .map((d) => DebtInfo(
+            name: d.name,
+            balance: d.balance,
+            apr: d.apr,
+            minimum: d.minimum,
+          ))
+      .toList();
+
   @override
   ConsumerState<DebtPayoffScreen> createState() => _DebtPayoffScreenState();
 }
@@ -536,4 +546,19 @@ class _Debt {
   final double apr;
   final int minimum;
   final Color color;
+}
+
+/// Public read-only view of a debt entry, used by tests and external consumers.
+class DebtInfo {
+  const DebtInfo({
+    required this.name,
+    required this.balance,
+    required this.apr,
+    required this.minimum,
+  });
+
+  final String name;
+  final int balance;
+  final double apr;
+  final int minimum;
 }

@@ -106,7 +106,7 @@ class HouseholdController extends Controller
 
     public function update(UpdateHouseholdRequest $request, Household $household): JsonResponse
     {
-        $this->authorizeEditHousehold($request->user(), $household);
+        $this->authorizeOwnerHousehold($request->user(), $household);
         $household->update($request->validated());
 
         return response()->json(['data' => $this->payload($household)]);
