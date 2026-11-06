@@ -1,11 +1,13 @@
 // ignore_for_file: prefer_initializing_formals
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_response_utils.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/notification_service.dart';
 import '../domain/auth_state.dart';
 
 /// Handles all auth-related API calls and token management.
@@ -176,6 +178,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isEmailVerified: user['email_verified_at'] != null,
         householdId: user['current_household_id'] as int?,
       );
+
+      // Register FCM token with backend (best-effort, don't block login).
+      // Register FCM token with backend (best-effort, don't block login).
+      _registerFcmToken();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -218,6 +224,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isEmailVerified: false,
         householdId: user['current_household_id'] as int?,
       );
+
+      // Register FCM token with backend (best-effort, don't block register).
+      _registerFcmToken();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -229,12 +238,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     state = state.copyWith(isLoading: true);
+    // Remove FCM token from backend before logging out.
+    final fcmToken = await AppNotificationService().getDeviceToken();
     try {
-      await _repo.logout();
+      if (fcmToken != null) {
+        await _repo.removeDeviceToken(fcmToken);
+      }
+      await _repo.logout(deviceToken: fcmToken);
     } finally {
       state = const AuthState(isLoggedIn: false);
     }
   }
 
   void clearError() => state = state.copyWith(error: null);
+
+  /// Registers the FCM token with the backend. Best-effort — never throws.
+  Future<void> _registerFcmToken() async {
+    try {
+      final token = await AppNotificationService().getDeviceToken();
+      if (token == null) return;
+      final platform = defaultTargetPlatform == TargetPlatform.iOS
+          ? 'ios'
+          : 'android';
+      await _repo.registerDeviceToken(token: token, platform: platform);
+    } catch (e) {
+      debugPrint('[FCM] Token registration failed: $e');
+    }
+  }
 }

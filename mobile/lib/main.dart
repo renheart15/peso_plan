@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
@@ -18,8 +19,7 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Firebase only when the generated project config is present.
-  // The placeholder Firebase file is intentionally safe for local/dev builds.
+  // Initialize Firebase only when the generated platform configuration is present.
   if (DefaultFirebaseOptions.isConfigured) {
     try {
       await Firebase.initializeApp(
@@ -37,14 +37,42 @@ Future<void> main() async {
     print('[DEV] Firebase config not detected; app running in local-safe mode.');
   }
 
-  runApp(const ProviderScope(child: PesoPlanApp()));
-}
+  runApp(const ProviderScope(child: PesoPlanApp()));}
 
-class PesoPlanApp extends ConsumerWidget {
+class PesoPlanApp extends ConsumerStatefulWidget {
   const PesoPlanApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PesoPlanApp> createState() => _PesoPlanAppState();
+}
+
+class _PesoPlanAppState extends ConsumerState<PesoPlanApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Wire notification taps → GoRouter after the first frame so the router
+    // is fully initialised before we might navigate.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final service = ref.read(notificationServiceProvider);
+      service.onNotificationTap = (route) {
+        if (route != null && mounted) {
+          ref.read(appRouterProvider).go(route);
+        }
+      };
+      // Listen for FCM token refreshes and re-register with the backend.
+      service.onTokenRefresh((token) async {
+        try {
+          await ref.read(authRepositoryProvider).registerDeviceToken(
+                token: token,
+                platform: defaultTargetPlatform.name.toLowerCase(),
+              );
+        } catch (_) {}
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 

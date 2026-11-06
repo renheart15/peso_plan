@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\GoalController;
 use App\Http\Controllers\Api\V1\HouseholdController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\RecurringBillController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\TransactionController;
@@ -87,6 +88,9 @@ Route::prefix('v1')->group(function () {
 
             // Recurring bills
             Route::apiResource('recurring-bills', RecurringBillController::class);
+
+            // Push notifications (send to household members)
+            Route::post('notifications/send', [NotificationController::class, 'send']);
 
             // Reports
             Route::prefix('reports')->group(function () {

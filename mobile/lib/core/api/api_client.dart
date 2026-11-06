@@ -9,9 +9,13 @@ class ApiClient {
     FlutterSecureStorage? storage,
     String? baseUrl,
   }) : _storage = storage ?? const FlutterSecureStorage() {
+    const environmentBaseUrl = String.fromEnvironment('API_BASE_URL');
     _dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl ?? AppConstants.apiBaseUrl,
+        baseUrl: baseUrl ??
+            (environmentBaseUrl.isNotEmpty
+                ? environmentBaseUrl
+                : FlavorConfig.apiBaseUrl),
         connectTimeout: const Duration(seconds: AppConstants.apiTimeoutSeconds),
         receiveTimeout: const Duration(seconds: AppConstants.apiTimeoutSeconds),
         sendTimeout: const Duration(seconds: AppConstants.apiTimeoutSeconds),
