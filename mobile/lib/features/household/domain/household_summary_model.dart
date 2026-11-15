@@ -27,10 +27,10 @@ class HouseholdSummaryModel {
       sharedCashCents: _asInt(
         root['shared_cash_cents'] ??
             root['sharedCashCents'] ??
-            58500,
+            0,
       ),
-      members: members.isNotEmpty ? members : _defaultMembers(),
-      activity: activity.isNotEmpty ? activity : _defaultActivity(),
+      members: members,
+      activity: activity,
     );
   }
 
@@ -41,17 +41,6 @@ class HouseholdSummaryModel {
     return 0;
   }
 
-  static List<HouseholdMemberModel> _defaultMembers() => const [
-    HouseholdMemberModel(name: 'Maria Santos', role: 'Owner', avatar: 'MS', colorHex: '#1A6B4A'),
-    HouseholdMemberModel(name: 'Lio Santos', role: 'Partner', avatar: 'LS', colorHex: '#0E7C86'),
-    HouseholdMemberModel(name: 'Ari Santos', role: 'Child', avatar: 'AS', colorHex: '#B7791F'),
-  ];
-
-  static List<HouseholdActivityModel> _defaultActivity() => const [
-    HouseholdActivityModel(title: 'Budget updated', detail: 'Groceries budget increased by ₱1,000', timeLabel: '2h ago'),
-    HouseholdActivityModel(title: 'Transaction imported', detail: 'CSV import completed with 42 rows', timeLabel: 'Yesterday'),
-    HouseholdActivityModel(title: 'Goal reached', detail: 'Emergency fund reached 80% milestone', timeLabel: '3 days ago'),
-  ];
 }
 
 class HouseholdMemberModel {

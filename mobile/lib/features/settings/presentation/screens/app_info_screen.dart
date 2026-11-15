@@ -96,7 +96,7 @@ class AppInfoScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Feature work is complete for the sample-data UI flow. Remaining launch work is real API wiring, production Firebase configuration, and final QA on device builds.',
+                    'Core features are connected to the Laravel API. Remaining launch work includes Firebase/APNs delivery verification and final physical-device QA.',
                     style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],

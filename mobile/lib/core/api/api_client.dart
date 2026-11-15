@@ -5,14 +5,13 @@ import '../constants/app_constants.dart';
 
 /// Dio HTTP client configured with auth interceptor and timeout.
 class ApiClient {
-  ApiClient({
-    FlutterSecureStorage? storage,
-    String? baseUrl,
-  }) : _storage = storage ?? const FlutterSecureStorage() {
+  ApiClient({FlutterSecureStorage? storage, String? baseUrl})
+    : _storage = storage ?? const FlutterSecureStorage() {
     const environmentBaseUrl = String.fromEnvironment('API_BASE_URL');
     _dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl ??
+        baseUrl:
+            baseUrl ??
             (environmentBaseUrl.isNotEmpty
                 ? environmentBaseUrl
                 : FlavorConfig.apiBaseUrl),
@@ -47,37 +46,69 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
-  }) =>
-      _dio.get<T>(path, queryParameters: queryParameters, options: options);
+  }) => _dio.get<T>(path, queryParameters: queryParameters, options: options);
 
   Future<Response<T>> post<T>(
     String path, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
-  }) =>
-      _dio.post<T>(path, data: data, queryParameters: queryParameters, options: options);
+  }) => _dio.post<T>(
+    path,
+    data: data,
+    queryParameters: queryParameters,
+    options: options,
+  );
 
-  Future<Response<T>> put<T>(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) =>
+  Future<Response<T>> put<T>(String path, {dynamic data, Options? options}) =>
       _dio.put<T>(path, data: data, options: options);
 
-  Future<Response<T>> patch<T>(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) =>
+  Future<Response<T>> patch<T>(String path, {dynamic data, Options? options}) =>
       _dio.patch<T>(path, data: data, options: options);
 
   Future<Response<T>> delete<T>(
     String path, {
     dynamic data,
     Options? options,
-  }) =>
-      _dio.delete<T>(path, data: data, options: options);
+  }) => _dio.delete<T>(path, data: data, options: options);
+
+  Future<bool> warmUp({
+    int attempts = AppConstants.warmUpMaxAttempts,
+    Duration delay = const Duration(seconds: AppConstants.warmUpDelaySeconds),
+  }) async {
+    final baseUrl = _dio.options.baseUrl;
+    final normalizedBase = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    const apiV1Suffix = '/api/v1';
+    final origin = normalizedBase.endsWith(apiV1Suffix)
+        ? normalizedBase.substring(
+            0,
+            normalizedBase.length - apiV1Suffix.length,
+          )
+        : normalizedBase;
+    final healthUrl = '$origin/up';
+
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        await _dio.getUri<void>(
+          Uri.parse(healthUrl),
+          options: Options(
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: Duration(
+              seconds: AppConstants.warmUpReceiveTimeoutSeconds,
+            ),
+          ),
+        );
+        return true;
+      } on DioException {
+        if (attempt < attempts - 1) {
+          await Future<void>.delayed(delay);
+        }
+      }
+    }
+    return false;
+  }
 }
 
 /// Interceptor that attaches the bearer token from secure storage.
@@ -110,38 +141,46 @@ class _AuthInterceptor extends Interceptor {
 
 /// Converts a Dio error to a user-friendly message.
 String dioErrorMessage(DioException e) {
+  // ── Network / transport errors ───────────────────────────────────
   if (e.type == DioExceptionType.connectionTimeout ||
+      e.type == DioExceptionType.sendTimeout ||
       e.type == DioExceptionType.receiveTimeout) {
-    return 'Connection timed out. Please check your internet.';
+    return 'The connection is taking too long. Please try again.';
   }
   if (e.type == DioExceptionType.connectionError) {
-    return 'No internet connection.';
+    return 'Unable to connect to the server. Please check your internet connection.';
   }
 
+  // ── HTTP status errors ───────────────────────────────────────────
   final status = e.response?.statusCode;
   final data = e.response?.data;
 
   if (data is Map<String, dynamic>) {
-    // Laravel validation errors
+    // Laravel validation errors (422)
     if (data.containsKey('errors')) {
       final errors = data['errors'] as Map<String, dynamic>;
+      final first = errors.values.firstOrNull;
+      if (first is List && first.isNotEmpty) return first.first.toString();
       return errors.values
           .expand((v) => v is List ? v.cast<String>() : [v.toString()])
           .first;
     }
-    if (data.containsKey('message')) {
-      return data['message'] as String;
+    // Backend message field — but do not forward raw 401 messages
+    final backendMsg = data['message'] as String?;
+    if (backendMsg != null && backendMsg.isNotEmpty && status != 401) {
+      return backendMsg;
     }
   }
 
   return switch (status) {
-    400 => 'Bad request.',
-    401 => 'Session expired. Please log in again.',
-    403 => 'You don\'t have permission to do that.',
-    404 => 'Resource not found.',
-    422 => 'Validation error.',
-    429 => 'Too many requests. Please slow down.',
-    500 => 'Server error. Please try again later.',
+    400 => 'Bad request. Please check your input.',
+    401 => 'Incorrect email or password. Please try again.',
+    403 => 'Please verify your email address before logging in.',
+    404 => 'No account found with this email address.',
+    422 => 'Validation error. Please check your input.',
+    429 => 'Too many attempts. Please slow down and try again later.',
+    500 || 502 || 503 || 504 =>
+      'Our server is temporarily unavailable. Please try again in a moment.',
     _ => 'Something went wrong. Please try again.',
   };
 }

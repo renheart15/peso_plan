@@ -9,9 +9,11 @@ class TransactionRepository {
 
   final ApiClient _api;
 
-  Future<List<TransactionModel>> getTransactions({required int? householdId}) async {
+  Future<List<TransactionModel>> getTransactions({
+    required int? householdId,
+  }) async {
     if (householdId == null || householdId <= 0) {
-      return _fallbackSampleTransactions();
+      return const [];
     }
 
     try {
@@ -22,7 +24,7 @@ class TransactionRepository {
       final rawList = ApiResponseUtils.unwrapCollection(payload);
       return rawList.map((item) => TransactionModel.fromJson(item)).toList();
     } catch (_) {
-      return _fallbackSampleTransactions();
+      rethrow;
     }
   }
 
@@ -36,10 +38,13 @@ class TransactionRepository {
         id: createdAt.millisecondsSinceEpoch,
         title: (data['payee'] ?? data['title'] ?? 'Transaction').toString(),
         category: (data['category'] ?? 'General').toString(),
-        amountCents: _parseAmountCents(data['amount_cents'] ?? data['amount'] ?? 0),
+        amountCents: _parseAmountCents(
+          data['amount_cents'] ?? data['amount'] ?? 0,
+        ),
         date: DateTime.tryParse(data['date']?.toString() ?? '') ?? createdAt,
         type: (data['type'] ?? 'expense').toString(),
-        accountName: (data['account_name'] ?? data['account'] ?? 'Checking').toString(),
+        accountName: (data['account_name'] ?? data['account'] ?? 'Checking')
+            .toString(),
         notes: data['notes']?.toString(),
       );
     }
@@ -54,6 +59,37 @@ class TransactionRepository {
       return TransactionModel.fromJson(payload);
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<TransactionModel?> updateTransaction({
+    required int householdId,
+    required int transactionId,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      final response = await _api.put<Map<String, dynamic>>(
+        '/households/$householdId/transactions/$transactionId',
+        data: data,
+      );
+      final payload = ApiResponseUtils.unwrapRecord(response.data);
+      return payload == null ? null : TransactionModel.fromJson(payload);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> deleteTransaction({
+    required int householdId,
+    required int transactionId,
+  }) async {
+    try {
+      await _api.delete<void>(
+        '/households/$householdId/transactions/$transactionId',
+      );
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -85,46 +121,5 @@ class TransactionRepository {
     if (value is double) return value.round();
     if (value is String) return int.tryParse(value) ?? 0;
     return 0;
-  }
-
-  List<TransactionModel> _fallbackSampleTransactions() {
-    return [
-      TransactionModel(
-        id: 1,
-        title: 'Salary deposit',
-        category: 'Income',
-        amountCents: 45000,
-        date: DateTime(2026, 10, 1),
-        type: 'income',
-        accountName: 'Checking',
-      ),
-      TransactionModel(
-        id: 2,
-        title: 'Grocery run',
-        category: 'Groceries',
-        amountCents: -3250,
-        date: DateTime(2026, 10, 3),
-        type: 'expense',
-        accountName: 'Cash',
-      ),
-      TransactionModel(
-        id: 3,
-        title: 'Electric bill',
-        category: 'Utilities',
-        amountCents: -2100,
-        date: DateTime(2026, 10, 4),
-        type: 'expense',
-        accountName: 'Checking',
-      ),
-      TransactionModel(
-        id: 4,
-        title: 'Freelance project',
-        category: 'Side hustle',
-        amountCents: 12000,
-        date: DateTime(2026, 10, 8),
-        type: 'income',
-        accountName: 'Savings',
-      ),
-    ];
   }
 }

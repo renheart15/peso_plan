@@ -9,7 +9,7 @@ class HouseholdRepository {
 
   Future<HouseholdSummaryModel> getHouseholdSummary({required int? householdId}) async {
     if (householdId == null || householdId <= 0) {
-      return _fallbackSummary();
+      throw StateError('A household is required to load household details.');
     }
 
     try {
@@ -19,7 +19,7 @@ class HouseholdRepository {
       final payload = ApiResponseUtils.unwrapData(response.data);
       return HouseholdSummaryModel.fromJson(payload);
     } catch (_) {
-      return _fallbackSummary();
+      rethrow;
     }
   }
 
@@ -46,46 +46,4 @@ class HouseholdRepository {
     }
   }
 
-  HouseholdSummaryModel _fallbackSummary() {
-    return const HouseholdSummaryModel(
-      sharedCashCents: 58500,
-      members: [
-        HouseholdMemberModel(
-          name: 'Maria Santos',
-          role: 'Owner',
-          avatar: 'MS',
-          colorHex: '#1A6B4A',
-        ),
-        HouseholdMemberModel(
-          name: 'Lio Santos',
-          role: 'Partner',
-          avatar: 'LS',
-          colorHex: '#0E7C86',
-        ),
-        HouseholdMemberModel(
-          name: 'Ari Santos',
-          role: 'Child',
-          avatar: 'AS',
-          colorHex: '#B7791F',
-        ),
-      ],
-      activity: [
-        HouseholdActivityModel(
-          title: 'Budget updated',
-          detail: 'Groceries budget increased by ₱1,000',
-          timeLabel: '2h ago',
-        ),
-        HouseholdActivityModel(
-          title: 'Transaction imported',
-          detail: 'CSV import completed with 42 rows',
-          timeLabel: 'Yesterday',
-        ),
-        HouseholdActivityModel(
-          title: 'Goal reached',
-          detail: 'Emergency fund reached 80% milestone',
-          timeLabel: '3 days ago',
-        ),
-      ],
-    );
-  }
 }

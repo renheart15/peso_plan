@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class BudgetCategoryModel {
   const BudgetCategoryModel({
     required this.id,
+    this.budgetId,
     required this.name,
     required this.plannedCents,
     required this.spentCents,
@@ -11,6 +12,7 @@ class BudgetCategoryModel {
   });
 
   final int id;
+  final int? budgetId;
   final String name;
   final int plannedCents;
   final int spentCents;
@@ -18,12 +20,28 @@ class BudgetCategoryModel {
   final String? colorHex;
 
   factory BudgetCategoryModel.fromJson(Map<String, dynamic> json) {
-    final planned = _asInt(json['planned_cents'] ?? json['plannedCents'] ?? json['budgeted_cents'] ?? 0);
-    final spent = _asInt(json['spent_cents'] ?? json['spentCents'] ?? json['actual_cents'] ?? 0);
+    final planned = _asInt(
+      json['planned_cents'] ??
+          json['plannedCents'] ??
+          json['budgeted_cents'] ??
+          0,
+    );
+    final spent = _asInt(
+      json['spent_cents'] ?? json['spentCents'] ?? json['actual_cents'] ?? 0,
+    );
+    final category = json['category'] is Map
+        ? Map<String, dynamic>.from(json['category'] as Map)
+        : null;
 
     return BudgetCategoryModel(
-      id: (json['id'] ?? 0) as int,
-      name: (json['name'] ?? json['category_name'] ?? 'Category').toString(),
+      id: _asInt(category?['id'] ?? json['category_id'] ?? json['id']),
+      budgetId: _asInt(json['id']) == 0 ? null : _asInt(json['id']),
+      name:
+          (category?['name'] ??
+                  json['name'] ??
+                  json['category_name'] ??
+                  'Category')
+              .toString(),
       plannedCents: planned,
       spentCents: spent,
       iconName: json['icon']?.toString() ?? json['icon_name']?.toString(),

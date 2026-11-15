@@ -9,7 +9,7 @@ class RecurringBillRepository {
 
   Future<List<RecurringBillModel>> getRecurringBills({required int? householdId}) async {
     if (householdId == null || householdId <= 0) {
-      return _fallbackSampleBills();
+      return const [];
     }
 
     try {
@@ -20,7 +20,7 @@ class RecurringBillRepository {
       final rawList = ApiResponseUtils.unwrapCollection(payload);
       return rawList.map((item) => RecurringBillModel.fromJson(item)).toList();
     } catch (_) {
-      return _fallbackSampleBills();
+      rethrow;
     }
   }
 
@@ -59,48 +59,4 @@ class RecurringBillRepository {
     return 0;
   }
 
-  List<RecurringBillModel> _fallbackSampleBills() {
-    return [
-      RecurringBillModel(
-        id: 1,
-        name: 'Rent',
-        amountCents: 22000,
-        nextDue: DateTime(2026, 10, 30),
-        frequency: 'monthly',
-        autoPay: true,
-        categoryName: 'Housing',
-        colorHex: '#1A6B4A',
-      ),
-      RecurringBillModel(
-        id: 2,
-        name: 'Internet',
-        amountCents: 1299,
-        nextDue: DateTime(2026, 11, 2),
-        frequency: 'monthly',
-        autoPay: true,
-        categoryName: 'Utilities',
-        colorHex: '#0E7C86',
-      ),
-      RecurringBillModel(
-        id: 3,
-        name: 'Electricity',
-        amountCents: 3450,
-        nextDue: DateTime(2026, 11, 5),
-        frequency: 'monthly',
-        autoPay: false,
-        categoryName: 'Utilities',
-        colorHex: '#B7791F',
-      ),
-      RecurringBillModel(
-        id: 4,
-        name: 'Streaming',
-        amountCents: 599,
-        nextDue: DateTime(2026, 11, 8),
-        frequency: 'monthly',
-        autoPay: true,
-        categoryName: 'Entertainment',
-        colorHex: '#8A5CF6',
-      ),
-    ];
-  }
 }

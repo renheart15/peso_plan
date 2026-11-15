@@ -6,6 +6,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/verify_email_screen.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/budget/presentation/screens/budget_screen.dart';
 import '../../features/budget/presentation/screens/add_budget_screen.dart';
@@ -72,12 +73,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
     redirect: (context, state) {
+      final isInitializing = authState.isInitializing;
       final isLoggedIn = authState.isLoggedIn;
+      final isOnSplash = state.matchedLocation == AppRoutes.splash;
       final isOnAuth =
           state.matchedLocation == AppRoutes.login ||
           state.matchedLocation == AppRoutes.register ||
           state.matchedLocation == AppRoutes.forgotPassword;
       final isOnboarding = state.matchedLocation == AppRoutes.onboarding;
+
+      // Keep user on the splash screen while the initial session check runs.
+      // This prevents the login page from appearing (and potentially hanging)
+      // before we know whether a valid session exists.
+      if (isInitializing) {
+        return isOnSplash ? null : AppRoutes.splash;
+      }
 
       if (!isLoggedIn && !isOnAuth && !isOnboarding) {
         return AppRoutes.login;
@@ -93,6 +103,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // ── Splash (startup session check) ──────────────────────────
+      GoRoute(
+        path: AppRoutes.splash,
+        name: 'splash',
+        builder: (c, s) => const SplashScreen(),
+      ),
+
       // ── Auth shell ──────────────────────────────────────────────
       GoRoute(
         path: AppRoutes.login,

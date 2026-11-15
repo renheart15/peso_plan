@@ -9,7 +9,7 @@ class GoalRepository {
 
   Future<List<GoalModel>> getGoals({required int? householdId}) async {
     if (householdId == null || householdId <= 0) {
-      return _fallbackSampleGoals();
+      return const [];
     }
 
     try {
@@ -20,7 +20,7 @@ class GoalRepository {
       final rawList = ApiResponseUtils.unwrapCollection(payload);
       return rawList.map((item) => GoalModel.fromJson(item)).toList();
     } catch (_) {
-      return _fallbackSampleGoals();
+      rethrow;
     }
   }
 
@@ -60,32 +60,4 @@ class GoalRepository {
     return 0;
   }
 
-  List<GoalModel> _fallbackSampleGoals() {
-    return [
-      GoalModel(
-        id: 1,
-        name: 'Emergency fund',
-        targetCents: 150000,
-        currentCents: 98000,
-        type: 'savings',
-        dueDate: DateTime(2026, 12, 1),
-      ),
-      GoalModel(
-        id: 2,
-        name: 'Dream vacation',
-        targetCents: 90000,
-        currentCents: 42000,
-        type: 'savings',
-        dueDate: DateTime(2027, 6, 1),
-      ),
-      GoalModel(
-        id: 3,
-        name: 'Credit card payoff',
-        targetCents: 35000,
-        currentCents: 22000,
-        type: 'debt',
-        dueDate: DateTime(2027, 2, 1),
-      ),
-    ];
-  }
 }

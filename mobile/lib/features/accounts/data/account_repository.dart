@@ -11,7 +11,7 @@ class AccountRepository {
 
   Future<List<AccountModel>> getAccounts({required int? householdId}) async {
     if (householdId == null || householdId <= 0) {
-      return _fallbackSampleAccounts();
+      return const [];
     }
 
     try {
@@ -22,7 +22,7 @@ class AccountRepository {
       final rawList = ApiResponseUtils.unwrapCollection(payload);
       return rawList.map((item) => AccountModel.fromJson(item)).toList();
     } catch (_) {
-      return _fallbackSampleAccounts();
+      rethrow;
     }
   }
 
@@ -59,40 +59,4 @@ class AccountRepository {
     return 0;
   }
 
-  List<AccountModel> _fallbackSampleAccounts() {
-    return const [
-      AccountModel(
-        id: 1,
-        name: 'Checking',
-        balanceCents: 145800,
-        type: 'checking',
-        colorHex: '#1A6B4A',
-        lastUpdated: null,
-      ),
-      AccountModel(
-        id: 2,
-        name: 'Savings',
-        balanceCents: 257350,
-        type: 'savings',
-        colorHex: '#0E7C86',
-        lastUpdated: null,
-      ),
-      AccountModel(
-        id: 3,
-        name: 'Cash wallet',
-        balanceCents: 18500,
-        type: 'cash',
-        colorHex: '#B7791F',
-        lastUpdated: null,
-      ),
-      AccountModel(
-        id: 4,
-        name: 'Credit card',
-        balanceCents: -43250,
-        type: 'credit_card',
-        colorHex: '#B53A2F',
-        lastUpdated: null,
-      ),
-    ];
-  }
 }

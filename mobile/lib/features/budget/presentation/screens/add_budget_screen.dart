@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/api/api_response_utils.dart';
 
 class AddBudgetScreen extends ConsumerStatefulWidget {
   const AddBudgetScreen({super.key});
@@ -48,9 +49,51 @@ class _AddBudgetScreenState extends ConsumerState<AddBudgetScreen> {
       final navigator = Navigator.of(context);
       final householdId = ref.read(authStateProvider).householdId;
       final repo = ref.read(budgetRepositoryProvider);
+
+      if (householdId == null || householdId <= 0) {
+        throw StateError('Sign in before creating a budget.');
+      }
+
+      final api = ref.read(apiClientProvider);
+      final categoriesResponse =
+          await api.get<Map<String, dynamic>>('/households/$householdId/categories');
+      final categories = ApiResponseUtils.unwrapCollection(categoriesResponse.data);
+      final categoryName = _nameController.text.trim();
+      Map<String, dynamic>? category;
+      for (final item in categories) {
+        if (item['name']?.toString().toLowerCase() ==
+            categoryName.toLowerCase()) {
+          category = item;
+          break;
+        }
+      }
+
+      if (category == null) {
+        final createdCategory = await api.post<Map<String, dynamic>>(
+          '/households/$householdId/categories',
+          data: {
+            'name': categoryName,
+            'type': 'expense',
+          },
+        );
+        category = ApiResponseUtils.unwrapRecord(createdCategory.data);
+      }
+
+      final rawCategoryId = category?['id'];
+      final categoryId = rawCategoryId is int
+          ? rawCategoryId
+          : int.tryParse(rawCategoryId?.toString() ?? '');
+      if (categoryId == null) {
+        throw StateError('Unable to resolve the budget category.');
+      }
+
+      final now = DateTime.now();
       final payload = {
         'name': _nameController.text.trim(),
         'category_name': _nameController.text.trim(),
+        'category_id': categoryId,
+        'year': now.year,
+        'month': now.month,
         'planned_cents': (planned * 100).round(),
         'spent_cents': (spent * 100).round(),
       };
@@ -73,7 +116,7 @@ class _AddBudgetScreenState extends ConsumerState<AddBudgetScreen> {
       if (!mounted) return;
       await ref.read(offlineQueueServiceProvider).enqueue(
         method: 'POST',
-        path: '/households/${householdId ?? 1}/budgets',
+        path: '/households/$householdId/budgets',
         body: jsonEncode(payload),
       );
       messenger?.showSnackBar(

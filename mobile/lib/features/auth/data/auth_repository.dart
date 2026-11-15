@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -127,7 +128,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _init() async {
     final hasToken = await _repo.hasToken();
     if (!hasToken) {
-      state = state.copyWith(isLoggedIn: false);
+      state = state.copyWith(isInitializing: false, isLoggedIn: false);
       return;
     }
 
@@ -137,6 +138,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           ? data['user'] as Map<String, dynamic>
           : data;
       state = state.copyWith(
+        isInitializing: false,
         isLoggedIn: true,
         userId: user['id'] as int?,
         userEmail: user['email'] as String?,
@@ -144,9 +146,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isEmailVerified: user['email_verified_at'] != null,
         householdId: (user['current_household_id'] as int?),
       );
+    } on DioException catch (e) {
+      // 401 means the token is invalid / expired — clear it.
+      // Any other Dio error (timeout, connection) means the backend is
+      // temporarily unreachable. Clear the token to avoid a stuck state so
+      // the user can log in again once the server is available.
+      if (e.response?.statusCode == 401 ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        await _repo.clearToken();
+      }
+      state = state.copyWith(isInitializing: false, isLoggedIn: false);
     } catch (_) {
       await _repo.clearToken();
-      state = state.copyWith(isLoggedIn: false);
+      state = state.copyWith(isInitializing: false, isLoggedIn: false);
     }
   }
 

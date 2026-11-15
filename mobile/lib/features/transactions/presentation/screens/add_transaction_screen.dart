@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../domain/transaction_model.dart';
 
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({super.key, this.transactionId});
@@ -25,6 +26,35 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   String _selectedAccount = 'Checking';
   String _selectedCategory = 'Groceries';
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.transactionId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final transactions = await ref.read(transactionsProvider.future);
+        TransactionModel? transaction;
+        for (final item in transactions) {
+          if (item.id == widget.transactionId) {
+            transaction = item;
+            break;
+          }
+        }
+        if (!mounted || transaction == null) return;
+        final found = transaction;
+        setState(() {
+          _amountController.text = (found.amountCents.abs() / 100)
+              .toStringAsFixed(2);
+          _descriptionController.text = found.title;
+          _payeeController.text = found.title;
+          _selectedDate = found.date;
+          _transactionType = found.type;
+          _selectedAccount = found.accountName;
+          _selectedCategory = found.category;
+        });
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -54,9 +84,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     final parsedAmount = double.tryParse(_amountController.text.trim());
     if (parsedAmount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid amount.')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Enter a valid amount.')));
       return;
     }
 
@@ -92,6 +121,30 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         'notes': '',
       };
 
+      if (widget.transactionId != null && householdId != null) {
+        final updated = await repo.updateTransaction(
+          householdId: householdId,
+          transactionId: widget.transactionId!,
+          data: {
+            if (selectedAccount != null) 'account_id': selectedAccount.id,
+            'type': _transactionType,
+            'amount_cents': (parsedAmount * 100).round(),
+            'date': _selectedDate.toIso8601String().split('T').first,
+            'payee': _payeeController.text.trim(),
+            'notes': _descriptionController.text.trim(),
+          },
+        );
+        if (updated != null) {
+          if (!mounted) return;
+          messenger?.showSnackBar(
+            const SnackBar(content: Text('Transaction updated.')),
+          );
+          ref.invalidate(transactionsProvider);
+          navigator.maybePop();
+          return;
+        }
+      }
+
       final saved = await repo.createTransaction(
         householdId: householdId,
         data: payload,
@@ -108,11 +161,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       }
 
       if (!mounted) return;
-      await ref.read(offlineQueueServiceProvider).enqueue(
-        method: 'POST',
-        path: '/households/${householdId ?? 1}/transactions',
-        body: jsonEncode(payload),
-      );
+      await ref
+          .read(offlineQueueServiceProvider)
+          .enqueue(
+            method: 'POST',
+            path: '/households/${householdId ?? 1}/transactions',
+            body: jsonEncode(payload),
+          );
       messenger?.showSnackBar(
         const SnackBar(content: Text('Transaction queued for sync.')),
       );

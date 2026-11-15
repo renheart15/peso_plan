@@ -281,18 +281,17 @@ class _BudgetMetric extends StatelessWidget {
   }
 }
 
-class _BudgetCategoryTile extends StatelessWidget {
+class _BudgetCategoryTile extends ConsumerWidget {
   const _BudgetCategoryTile({required this.item});
 
   final BudgetCategoryModel item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final spentRatio = item.plannedCents == 0
         ? 0.0
         : item.spentCents / item.plannedCents;
-    final remaining = item.plannedCents - item.spentCents;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -333,14 +332,112 @@ class _BudgetCategoryTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                Text(
-                  BudgetScreen._formatCurrency(remaining),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: remaining >= 0
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.error,
-                    fontWeight: FontWeight.w700,
-                  ),
+                PopupMenuButton<String>(
+                  tooltip: 'Budget actions',
+                  onSelected: (action) async {
+                    final householdId = ref.read(authStateProvider).householdId;
+                    if (householdId == null) return;
+
+                    if (action == 'delete') {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Delete budget item?'),
+                          content: Text('Remove the budget for ${item.name}?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true || item.budgetId == null) return;
+                      final deleted = await ref
+                          .read(budgetRepositoryProvider)
+                          .deleteBudget(
+                            householdId: householdId,
+                            budgetId: item.budgetId!,
+                          );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            deleted
+                                ? 'Budget item deleted.'
+                                : 'Unable to delete budget item.',
+                          ),
+                        ),
+                      );
+                      if (deleted) ref.invalidate(budgetCategoriesProvider);
+                      return;
+                    }
+
+                    final controller = TextEditingController(
+                      text: (item.plannedCents / 100).toStringAsFixed(2),
+                    );
+                    final amount = await showDialog<String>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: Text('Edit ${item.name}'),
+                        content: TextField(
+                          controller: controller,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Monthly planned amount',
+                            prefixText: '₱ ',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(
+                              dialogContext,
+                              controller.text.trim(),
+                            ),
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    );
+                    final parsed = double.tryParse(amount ?? '');
+                    if (parsed == null || item.budgetId == null) return;
+                    final updated = await ref
+                        .read(budgetRepositoryProvider)
+                        .updateBudget(
+                          householdId: householdId,
+                          budgetId: item.budgetId!,
+                          plannedCents: (parsed * 100).round(),
+                        );
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          updated == null
+                              ? 'Unable to update budget item.'
+                              : 'Budget item updated.',
+                        ),
+                      ),
+                    );
+                    if (updated != null) {
+                      ref.invalidate(budgetCategoriesProvider);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit amount')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
                 ),
               ],
             ),

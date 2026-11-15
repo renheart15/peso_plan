@@ -7,21 +7,25 @@ class BudgetRepository {
 
   final ApiClient _api;
 
-  Future<List<BudgetCategoryModel>> getBudgetCategories({required int? householdId}) async {
+  Future<List<BudgetCategoryModel>> getBudgetCategories({
+    required int? householdId,
+  }) async {
     if (householdId == null || householdId <= 0) {
-      return _fallbackSampleCategories();
+      return const [];
     }
 
     try {
+      final now = DateTime.now();
       final response = await _api.get<Map<String, dynamic>>(
         '/households/$householdId/budgets',
+        queryParameters: {'year': now.year, 'month': now.month},
       );
       final payload = ApiResponseUtils.unwrapData(response.data);
       return ApiResponseUtils.unwrapCollection(payload)
           .map((item) => BudgetCategoryModel.fromJson(item))
           .toList();
     } catch (_) {
-      return _fallbackSampleCategories();
+      rethrow;
     }
   }
 
@@ -29,16 +33,7 @@ class BudgetRepository {
     required int? householdId,
     required Map<String, dynamic> data,
   }) async {
-    if (householdId == null || householdId <= 0) {
-      return BudgetCategoryModel(
-        id: DateTime.now().millisecondsSinceEpoch,
-        name: (data['name'] ?? data['category_name'] ?? 'Category').toString(),
-        plannedCents: _toInt(data['planned_cents'] ?? data['plannedCents'] ?? 0),
-        spentCents: _toInt(data['spent_cents'] ?? data['spentCents'] ?? 0),
-        iconName: data['icon']?.toString(),
-        colorHex: data['color_hex']?.toString(),
-      );
-    }
+    if (householdId == null || householdId <= 0) return null;
 
     try {
       final response = await _api.post<Map<String, dynamic>>(
@@ -52,55 +47,32 @@ class BudgetRepository {
     }
   }
 
-  int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is double) return value.round();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
+  Future<BudgetCategoryModel?> updateBudget({
+    required int householdId,
+    required int budgetId,
+    required int plannedCents,
+  }) async {
+    try {
+      final response = await _api.put<Map<String, dynamic>>(
+        '/households/$householdId/budgets/$budgetId',
+        data: {'planned_cents': plannedCents},
+      );
+      final payload = ApiResponseUtils.unwrapRecord(response.data);
+      return payload == null ? null : BudgetCategoryModel.fromJson(payload);
+    } catch (_) {
+      return null;
+    }
   }
 
-  List<BudgetCategoryModel> _fallbackSampleCategories() {
-    return [
-      const BudgetCategoryModel(
-        id: 1,
-        name: 'Housing',
-        plannedCents: 18500,
-        spentCents: 7200,
-        iconName: 'housing',
-        colorHex: '#1A6B4A',
-      ),
-      const BudgetCategoryModel(
-        id: 2,
-        name: 'Groceries',
-        plannedCents: 12000,
-        spentCents: 9800,
-        iconName: 'groceries',
-        colorHex: '#0E7C86',
-      ),
-      const BudgetCategoryModel(
-        id: 3,
-        name: 'Transport',
-        plannedCents: 5000,
-        spentCents: 2900,
-        iconName: 'transport',
-        colorHex: '#3A86FF',
-      ),
-      const BudgetCategoryModel(
-        id: 4,
-        name: 'Utilities',
-        plannedCents: 6500,
-        spentCents: 3800,
-        iconName: 'utilities',
-        colorHex: '#B7791F',
-      ),
-      const BudgetCategoryModel(
-        id: 5,
-        name: 'Fun',
-        plannedCents: 4000,
-        spentCents: 1750,
-        iconName: 'fun',
-        colorHex: '#8A5CF6',
-      ),
-    ];
+  Future<bool> deleteBudget({
+    required int householdId,
+    required int budgetId,
+  }) async {
+    try {
+      await _api.delete<void>('/households/$householdId/budgets/$budgetId');
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

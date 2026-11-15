@@ -14,7 +14,9 @@ class AuthTextField extends StatelessWidget {
     this.suffixIcon,
     this.validator,
     this.onFieldSubmitted,
+    this.onChanged,
     this.autofillHints,
+    this.autocorrect = true,
   });
 
   final TextEditingController controller;
@@ -27,7 +29,9 @@ class AuthTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
   final void Function(String)? onFieldSubmitted;
+  final void Function(String)? onChanged;
   final List<String>? autofillHints;
+  final bool autocorrect;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +41,9 @@ class AuthTextField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       onFieldSubmitted: onFieldSubmitted,
+      onChanged: onChanged,
       autofillHints: autofillHints,
+      autocorrect: autocorrect,
       validator: validator,
       decoration: InputDecoration(
         labelText: label,

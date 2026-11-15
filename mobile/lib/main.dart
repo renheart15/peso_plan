@@ -34,10 +34,13 @@ Future<void> main() async {
     }
   } else {
     // ignore: avoid_print
-    print('[DEV] Firebase config not detected; app running in local-safe mode.');
+    print(
+      '[DEV] Firebase config not detected; app running in local-safe mode.',
+    );
   }
 
-  runApp(const ProviderScope(child: PesoPlanApp()));}
+  runApp(const ProviderScope(child: PesoPlanApp()));
+}
 
 class PesoPlanApp extends ConsumerStatefulWidget {
   const PesoPlanApp({super.key});
@@ -50,6 +53,9 @@ class _PesoPlanAppState extends ConsumerState<PesoPlanApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(apiClientProvider).warmUp();
+    });
     // Wire notification taps → GoRouter after the first frame so the router
     // is fully initialised before we might navigate.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -62,7 +68,9 @@ class _PesoPlanAppState extends ConsumerState<PesoPlanApp> {
       // Listen for FCM token refreshes and re-register with the backend.
       service.onTokenRefresh((token) async {
         try {
-          await ref.read(authRepositoryProvider).registerDeviceToken(
+          await ref
+              .read(authRepositoryProvider)
+              .registerDeviceToken(
                 token: token,
                 platform: defaultTargetPlatform.name.toLowerCase(),
               );

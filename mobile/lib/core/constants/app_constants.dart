@@ -14,7 +14,17 @@ class AppConstants {
   );
 
   static const String apiVersion = 'v1';
-  static const int apiTimeoutSeconds = 30;
+  /// Main API request timeout — generous enough for Render's free-tier cold start.
+  static const int apiTimeoutSeconds = 60;
+
+  /// Per-attempt timeout used when probing the backend /up health endpoint.
+  static const int warmUpReceiveTimeoutSeconds = 25;
+
+  /// Maximum warm-up probe attempts before giving up.
+  static const int warmUpMaxAttempts = 4;
+
+  /// Seconds to wait between warm-up attempts.
+  static const int warmUpDelaySeconds = 8;
 
   // ── Secure Storage keys ─────────────────────────────────────────
   static const String keyAuthToken = 'auth_token';

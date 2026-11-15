@@ -128,7 +128,10 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          _SectionHeader(title: 'Budget', onSeeAll: () {}),
+          _SectionHeader(
+            title: 'Budget',
+            onSeeAll: () => context.push(AppRoutes.budget),
+          ),
           const SizedBox(height: 8),
           if (budgetSummary.isEmpty)
             const _EmptyCard(
@@ -143,7 +146,10 @@ class DashboardScreen extends ConsumerWidget {
             ),
           const SizedBox(height: 16),
 
-          _SectionHeader(title: 'Upcoming bills', onSeeAll: () {}),
+          _SectionHeader(
+            title: 'Upcoming bills',
+            onSeeAll: () => context.push(AppRoutes.recurringBills),
+          ),
           const SizedBox(height: 8),
           if (upcomingBills.isEmpty)
             const _EmptyCard(
@@ -156,7 +162,10 @@ class DashboardScreen extends ConsumerWidget {
             ),
           const SizedBox(height: 16),
 
-          _SectionHeader(title: 'Goals', onSeeAll: () {}),
+          _SectionHeader(
+            title: 'Goals',
+            onSeeAll: () => context.push(AppRoutes.goals),
+          ),
           const SizedBox(height: 8),
           if (goals.isEmpty)
             const _EmptyCard(
@@ -429,5 +438,4 @@ class _GoalTile extends StatelessWidget {
     return formatter.format(value);
   }
 }
-
 

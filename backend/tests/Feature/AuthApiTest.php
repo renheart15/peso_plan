@@ -59,6 +59,41 @@ class AuthApiTest extends TestCase
         ])->assertUnauthorized();
     }
 
+    public function test_registration_validation_is_returned(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => ' ',
+            'email' => 'not-an-email',
+            'password' => '1234567',
+            'password_confirmation' => 'different',
+            'household_name' => ' ',
+            'device_name' => 'Test Device',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'name',
+                'email',
+                'password',
+                'household_name',
+            ]);
+    }
+
+    public function test_duplicate_email_is_rejected(): void
+    {
+        User::factory()->create(['email' => 'owner@example.com']);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Peso Owner',
+            'email' => 'OWNER@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'household_name' => 'Alfanta Household',
+            'device_name' => 'Test Device',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+    }
+
     public function test_authenticated_user_can_read_profile_and_logout(): void
     {
         $user = User::factory()->create();

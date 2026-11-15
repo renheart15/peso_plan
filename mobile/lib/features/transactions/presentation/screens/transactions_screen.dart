@@ -32,7 +32,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     super.dispose();
   }
 
-  List<TransactionModel> _filteredTransactions(List<TransactionModel> transactions) {
+  List<TransactionModel> _filteredTransactions(
+    List<TransactionModel> transactions,
+  ) {
     final query = _searchController.text.trim().toLowerCase();
 
     return transactions.where((entry) {
@@ -73,9 +75,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               children: [
                 Text(
                   'Filter transactions',
-                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(sheetContext).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
                 ...filters.map(
@@ -132,7 +133,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     if (householdId == null || householdId <= 0) {
       setState(() => _isImporting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('CSV preview loaded. Sign in to import to the API.')),
+        const SnackBar(
+          content: Text('CSV preview loaded. Sign in to import to the API.'),
+        ),
       );
       return;
     }
@@ -142,17 +145,21 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     if (accounts.isEmpty) {
       setState(() => _isImporting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Create an account before importing CSV transactions.')),
+        const SnackBar(
+          content: Text('Create an account before importing CSV transactions.'),
+        ),
       );
       return;
     }
 
-    final importResult = await ref.read(transactionRepositoryProvider).importCsv(
-      householdId: householdId,
-      accountId: accounts.first.id,
-      filePath: path,
-      fileName: file.name,
-    );
+    final importResult = await ref
+        .read(transactionRepositoryProvider)
+        .importCsv(
+          householdId: householdId,
+          accountId: accounts.first.id,
+          filePath: path,
+          fileName: file.name,
+        );
 
     if (!mounted) return;
     setState(() => _isImporting = false);
@@ -162,9 +169,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final skipped = importResult?['skipped'] ?? 0;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(importResult == null
-            ? 'Unable to import CSV. Check the file format and try again.'
-            : 'Imported $imported transactions; skipped $skipped duplicates.'),
+        content: Text(
+          importResult == null
+              ? 'Unable to import CSV. Check the file format and try again.'
+              : 'Imported $imported transactions; skipped $skipped duplicates.',
+        ),
       ),
     );
   }
@@ -334,7 +343,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 )
               else
                 ...filteredTransactions.map(
-                  (entry) => _TransactionTile(entry: entry),
+                  (entry) => _TransactionTile(entry: entry, ref: ref),
                 ),
             ],
           ),
@@ -409,9 +418,10 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.entry});
+  const _TransactionTile({required this.entry, required this.ref});
 
   final TransactionModel entry;
+  final WidgetRef ref;
 
   @override
   Widget build(BuildContext context) {
@@ -451,25 +461,82 @@ class _TransactionTile extends StatelessWidget {
             Text(DateFormat('MMM dd').format(entry.date)),
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${isIncome ? '+' : '-'}₱${entry.amountCents.abs()}',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: isIncome
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.error,
-                fontWeight: FontWeight.w700,
-              ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${isIncome ? '+' : '-'}₱${entry.amountCents.abs()}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: isIncome
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  entry.type,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              entry.type,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            PopupMenuButton<String>(
+              tooltip: 'Transaction actions',
+              onSelected: (action) async {
+                if (action == 'edit') {
+                  context.push('/transactions/edit/${entry.id}');
+                  return;
+                }
+
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Delete transaction?'),
+                    content: Text('Delete "${entry.title}"?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed != true) return;
+
+                final householdId = ref.read(authStateProvider).householdId;
+                if (householdId == null) return;
+                final deleted = await ref
+                    .read(transactionRepositoryProvider)
+                    .deleteTransaction(
+                      householdId: householdId,
+                      transactionId: entry.id,
+                    );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      deleted
+                          ? 'Transaction deleted.'
+                          : 'Unable to delete transaction.',
+                    ),
+                  ),
+                );
+                if (deleted) ref.invalidate(transactionsProvider);
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
             ),
           ],
         ),
