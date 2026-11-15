@@ -8,9 +8,11 @@ class AppConstants {
 
   // ── API ─────────────────────────────────────────────────────────
   /// Override at build time via --dart-define=API_BASE_URL=...
+  /// Default points to the production Render backend so release builds
+  /// work without any extra dart-define flags.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000/api/v1', // Android emulator → host
+    defaultValue: 'https://peso-plan-api.onrender.com/api/v1',
   );
 
   static const String apiVersion = 'v1';
@@ -108,12 +110,19 @@ class FlavorConfig {
   }
 
   static String get apiBaseUrl {
+    // If a custom URL was injected at build time (e.g. for local dev), use it.
+    const injected = String.fromEnvironment('API_BASE_URL');
+    if (injected.isNotEmpty) return injected;
+
     return switch (flavor) {
+      // Local development (emulator / physical device via USB)
       AppFlavor.dev => Platform.isAndroid
           ? 'http://10.0.2.2:8000/api/v1'
           : 'http://127.0.0.1:8000/api/v1',
-      AppFlavor.staging => 'https://peso-plan-api.onrender.com/api/v1',
-      AppFlavor.production => 'https://peso-plan-api.onrender.com/api/v1',
+      // All other flavors use the production Render URL.
+      AppFlavor.staging ||
+      AppFlavor.production =>
+        'https://peso-plan-api.onrender.com/api/v1',
     };
   }
 

@@ -43,11 +43,21 @@ class AuthController extends Controller
             // Set as current household
             $user->update(['current_household_id' => $household->id]);
 
-            // Send email verification
-            $user->sendEmailVerificationNotification();
-
             return $user;
         });
+
+        // Send email verification OUTSIDE the transaction so that any mail/queue
+        // issue (e.g. no SMTP configured, queue driver not running) cannot roll
+        // back the user and household records. The notification is best-effort.
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            // Log the failure but do not let it break registration.
+            \Illuminate\Support\Facades\Log::warning('Email verification notification failed', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
 
         $token = $user->createToken($request->device_name)->plainTextToken;
 
