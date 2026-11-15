@@ -176,24 +176,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
         deviceName: deviceName,
       );
-      final token = data['token'] as String;
-      final user = data['user'] as Map<String, dynamic>;
+
+      // Safe extraction with validation
+      final token = data['token'];
+      if (token == null || token is! String || token.isEmpty) {
+        throw Exception('Login failed: server returned an invalid response.');
+      }
+
+      final userRaw = data['user'];
+      final user =
+          userRaw is Map<String, dynamic>
+              ? userRaw
+              : (userRaw is Map
+                  ? Map<String, dynamic>.from(userRaw)
+                  : <String, dynamic>{});
 
       await _repo.saveToken(token);
+
+      int? toInt(dynamic v) =>
+          v == null ? null : (v is int ? v : int.tryParse(v.toString()));
 
       final isFirstLogin = data['is_first_login'] as bool? ?? false;
       state = state.copyWith(
         isLoggedIn: true,
         isLoading: false,
         isFirstLogin: isFirstLogin,
-        userId: user['id'] as int?,
+        userId: toInt(user['id']),
         userEmail: user['email'] as String?,
         userName: user['name'] as String?,
         isEmailVerified: user['email_verified_at'] != null,
-        householdId: user['current_household_id'] as int?,
+        householdId: toInt(user['current_household_id']),
       );
 
-      // Register FCM token with backend (best-effort, don't block login).
       // Register FCM token with backend (best-effort, don't block login).
       _registerFcmToken();
     } catch (e) {
@@ -223,20 +237,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
         householdName: householdName,
         deviceName: deviceName,
       );
-      final token = data['token'] as String;
-      final user = data['user'] as Map<String, dynamic>;
+
+      // Safe extraction — the backend returns { token, is_first_login, user }
+      // at the top level. unwrapData() returns the map as-is when no 'data'
+      // wrapper is present, so token and user should be directly accessible.
+      final token = data['token'];
+      if (token == null || token is! String || token.isEmpty) {
+        throw Exception(
+          'Registration failed: server returned an invalid response. '
+          'Please try again.',
+        );
+      }
+
+      final userRaw = data['user'];
+      final user =
+          userRaw is Map<String, dynamic>
+              ? userRaw
+              : (userRaw is Map
+                  ? Map<String, dynamic>.from(userRaw)
+                  : <String, dynamic>{});
 
       await _repo.saveToken(token);
+
+      // Safe int conversion — Supabase-based DBs sometimes return IDs as int
+      // but guard against String just in case.
+      int? toInt(dynamic v) =>
+          v == null ? null : (v is int ? v : int.tryParse(v.toString()));
 
       state = state.copyWith(
         isLoggedIn: true,
         isLoading: false,
         isFirstLogin: true,
-        userId: user['id'] as int?,
+        userId: toInt(user['id']),
         userEmail: user['email'] as String?,
         userName: user['name'] as String?,
         isEmailVerified: false,
-        householdId: user['current_household_id'] as int?,
+        householdId: toInt(user['current_household_id']),
       );
 
       // Register FCM token with backend (best-effort, don't block register).

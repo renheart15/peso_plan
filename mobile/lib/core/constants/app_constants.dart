@@ -14,18 +14,17 @@ class AppConstants {
   );
 
   static const String apiVersion = 'v1';
-  /// Main API request timeout.
-  /// Koyeb has no cold-start, so 20 s is plenty. Keep 60 s as safe fallback.
-  static const int apiTimeoutSeconds = 20;
+  /// Main API request timeout — generous enough for Render's free-tier cold start.
+  static const int apiTimeoutSeconds = 60;
 
   /// Per-attempt timeout used when probing the backend /up health endpoint.
-  static const int warmUpReceiveTimeoutSeconds = 10;
+  static const int warmUpReceiveTimeoutSeconds = 25;
 
   /// Maximum warm-up probe attempts before giving up.
-  static const int warmUpMaxAttempts = 2;
+  static const int warmUpMaxAttempts = 4;
 
   /// Seconds to wait between warm-up attempts.
-  static const int warmUpDelaySeconds = 3;
+  static const int warmUpDelaySeconds = 8;
 
   // ── Secure Storage keys ─────────────────────────────────────────
   static const String keyAuthToken = 'auth_token';
@@ -113,8 +112,6 @@ class FlavorConfig {
       AppFlavor.dev => Platform.isAndroid
           ? 'http://10.0.2.2:8000/api/v1'
           : 'http://127.0.0.1:8000/api/v1',
-      // TODO: After Koyeb deploy, replace both URLs below with your Koyeb URL:
-      // e.g. 'https://peso-plan-api-XXXX.koyeb.app/api/v1'
       AppFlavor.staging => 'https://peso-plan-api.onrender.com/api/v1',
       AppFlavor.production => 'https://peso-plan-api.onrender.com/api/v1',
     };

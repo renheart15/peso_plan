@@ -11,6 +11,154 @@ import '../../../../core/api/api_client.dart';
 import '../widgets/auth_logo.dart';
 import '../widgets/auth_text_field.dart';
 
+// ── Error classification ─────────────────────────────────────────────────────
+
+enum _ErrorKind { none, retryable, nonRetryable, success }
+
+class _Status {
+  const _Status(this.kind, this.message);
+  final _ErrorKind kind;
+  final String message;
+  static const none = _Status(_ErrorKind.none, '');
+}
+
+_Status _categoriseError(Object e) {
+  if (e is DioException) {
+    // Network / transport
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return const _Status(
+        _ErrorKind.retryable,
+        'The connection is taking too long. Please try again.',
+      );
+    }
+    if (e.type == DioExceptionType.connectionError) {
+      return const _Status(
+        _ErrorKind.retryable,
+        'Unable to connect to the server. Please check your internet connection.',
+      );
+    }
+
+    final status = e.response?.statusCode;
+    final data = e.response?.data;
+
+    // Laravel validation errors (422) — show first field error
+    if (data is Map<String, dynamic> && data.containsKey('errors')) {
+      final errors = data['errors'] as Map<String, dynamic>;
+      final first = errors.values.firstOrNull;
+      final msg =
+          (first is List && first.isNotEmpty)
+              ? first.first.toString()
+              : errors.values
+                  .expand((v) => v is List ? v.cast<String>() : [v.toString()])
+                  .first;
+      return _Status(_ErrorKind.nonRetryable, msg);
+    }
+
+    // Other backend message (not 401)
+    if (data is Map<String, dynamic>) {
+      final backendMsg = data['message'] as String?;
+      if (backendMsg != null && backendMsg.isNotEmpty && status != 401) {
+        return _Status(_ErrorKind.nonRetryable, backendMsg);
+      }
+    }
+
+    return _Status(
+      _ErrorKind.nonRetryable,
+      switch (status) {
+        400 => 'Bad request. Please check your input.',
+        401 => 'Incorrect email or password. Please try again.',
+        409 => 'An account with this email already exists.',
+        422 => 'Validation error. Please check your input.',
+        429 => 'Too many attempts. Please slow down and try again later.',
+        500 || 502 || 503 || 504 =>
+          'Our server is temporarily unavailable. Please try again in a moment.',
+        _ => dioErrorMessage(e),
+      },
+    );
+  }
+
+  // Catch-all for non-Dio errors (e.g. type cast failures)
+  final raw = e.toString().replaceFirst('Exception: ', '');
+  return _Status(_ErrorKind.nonRetryable, raw);
+}
+
+// ── Status banner widget ─────────────────────────────────────────────────────
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.status, this.onRetry});
+  final _Status status;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    final (bg, fg, icon) = switch (status.kind) {
+      _ErrorKind.success => (
+        cs.primaryContainer,
+        cs.onPrimaryContainer,
+        Icons.check_circle_outline,
+      ),
+      _ErrorKind.retryable => (
+        cs.tertiaryContainer,
+        cs.onTertiaryContainer,
+        Icons.wifi_off_outlined,
+      ),
+      _ErrorKind.nonRetryable => (
+        cs.errorContainer,
+        cs.onErrorContainer,
+        Icons.error_outline,
+      ),
+      _ErrorKind.none => (Colors.transparent, Colors.transparent, Icons.info),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: fg),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  status.message,
+                  style: tt.bodySmall?.copyWith(color: fg),
+                ),
+                if (status.kind == _ErrorKind.retryable && onRetry != null) ...[
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: onRetry,
+                    child: Text(
+                      'Tap to retry',
+                      style: tt.bodySmall?.copyWith(
+                        color: fg,
+                        decoration: TextDecoration.underline,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Register screen ──────────────────────────────────────────────────────────
+
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -27,7 +175,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _confirmCtrl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
-  String? _error;
+  _Status _status = _Status.none;
 
   @override
   void dispose() {
@@ -41,12 +189,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   String get _deviceName => Platform.isIOS ? 'iOS Device' : 'Android Device';
 
+  /// Clears the status banner whenever the user edits any field.
+  void _onChanged() {
+    if (_status.kind != _ErrorKind.none) {
+      setState(() => _status = _Status.none);
+    }
+  }
+
   Future<void> _submit() async {
+    // Clear any previous message first
+    setState(() => _status = _Status.none);
+
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+
+    // Guard against empty fields (belt-and-suspenders)
+    if (_nameCtrl.text.trim().isEmpty ||
+        _emailCtrl.text.trim().isEmpty ||
+        _passwordCtrl.text.isEmpty ||
+        _confirmCtrl.text.isEmpty) {
+      setState(() => _status = const _Status(
+            _ErrorKind.nonRetryable,
+            'Please fill in all required fields.',
+          ));
+      return;
+    }
+
+    setState(() => _loading = true);
 
     try {
       await ref
@@ -59,13 +227,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             householdName: _householdCtrl.text.trim(),
             deviceName: _deviceName,
           );
+
+      // Show success message briefly before the router redirects.
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _status = const _Status(
+            _ErrorKind.success,
+            'Account created! Welcome to Peso Plan 🎉',
+          );
+        });
+      }
+
+      // The GoRouter redirect will fire automatically once isLoggedIn == true,
+      // but we give the user a moment to see the success message.
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
     } catch (e) {
-      final message = e is DioException ? dioErrorMessage(e) : e.toString();
-      setState(() {
-        _error = message.replaceFirst('Exception: ', '');
-      });
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _status = _categoriseError(e);
+        });
+      }
     }
   }
 
@@ -98,27 +281,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                if (_error != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.errorContainer,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _error!,
-                      style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
-                    ),
+                // ── Status banner ──────────────────────────────────────
+                if (_status.kind != _ErrorKind.none) ...[
+                  _StatusBanner(
+                    status: _status,
+                    onRetry:
+                        _status.kind == _ErrorKind.retryable ? _submit : null,
                   ),
                   const SizedBox(height: 16),
                 ],
 
+                // ── Form fields ────────────────────────────────────────
                 AuthTextField(
                   controller: _nameCtrl,
                   label: 'Full name',
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.name],
                   prefixIcon: const Icon(Icons.person_outlined),
+                  onChanged: (_) => _onChanged(),
                   validator: (v) {
                     final name = v?.trim() ?? '';
                     if (name.isEmpty) return 'Full name is required';
@@ -138,6 +318,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   autocorrect: false,
                   autofillHints: const [AutofillHints.email],
                   prefixIcon: const Icon(Icons.email_outlined),
+                  onChanged: (_) => _onChanged(),
                   validator: (v) {
                     final email = v?.trim() ?? '';
                     if (email.isEmpty) return 'Email is required';
@@ -156,6 +337,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   hintText: 'e.g. The Santos Family',
                   textInputAction: TextInputAction.next,
                   prefixIcon: const Icon(Icons.home_outlined),
+                  onChanged: (_) => _onChanged(),
                   validator: (v) {
                     final household = v?.trim() ?? '';
                     if (household.isEmpty) return 'Household name is required';
@@ -176,6 +358,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.newPassword],
                   prefixIcon: const Icon(Icons.lock_outlined),
+                  onChanged: (_) => _onChanged(),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscure
@@ -205,6 +388,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   textInputAction: TextInputAction.done,
                   autofillHints: const [AutofillHints.newPassword],
                   onFieldSubmitted: (_) => _submit(),
+                  onChanged: (_) => _onChanged(),
                   prefixIcon: const Icon(Icons.lock_outlined),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Confirm your password';
@@ -216,6 +400,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 28),
 
+                // ── Submit button ──────────────────────────────────────
                 FilledButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
